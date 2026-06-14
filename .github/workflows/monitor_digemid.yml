@@ -19,7 +19,7 @@ env:
   PYTHON_VERSION: "3.11"
   TZ: "America/Lima"
   DRIVE_FOLDER_ID: "1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
-  FOLDER_URL: "https://drive.google.com/drive/folders/1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
+  FOLDER_URL: "https://drive.google.com/drive/folders/1LOygkKnbednAw-eCPLM0-9TXLGj16hw4"
   EMAIL_FROM: "conkosafe.ai@gmail.com"
   EMAIL_TO: "july.maita@conkomerco.com,finanzas@conkomerco.com,conkosafe.ai@gmail.com"
 
