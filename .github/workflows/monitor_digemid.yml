@@ -1,0 +1,488 @@
+name: "Monitor DIGEMID - Alertas Diarias"
+
+on:
+  schedule:
+    - cron: "0 13 */3 * *"   # cada 3 dias a las 8:00 AM Lima (UTC-5 = 13:00 UTC)
+
+  workflow_dispatch:
+    inputs:
+      max_paginas:
+        description: "Paginas a scrapear (1 = ultimas 10 alertas)"
+        required: false
+        default: "1"
+      dry_run:
+        description: "Dry run (no envia mail ni sube a Drive)"
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: "3.11"
+  TZ: "America/Lima"
+  DRIVE_FOLDER_ID: "1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
+  FOLDER_URL: "https://drive.google.com/drive/folders/1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
+  EMAIL_FROM: "russbelt.aliaga@conkomerco.com"
+  EMAIL_TO: "july.maita@conkomerco.com,finanzas@conkomerco.com"
+
+jobs:
+
+  # ============================================================
+  # JOB 1 - Scraping y generacion del Excel
+  # ============================================================
+  scrape:
+    name: "1 Scraping DIGEMID"
+    runs-on: ubuntu-latest
+    outputs:
+      excel_name:          ${{ steps.run.outputs.excel_name }}
+      total_alertas:       ${{ steps.run.outputs.total_alertas }}
+      alertas_inmediatas:  ${{ steps.run.outputs.alertas_inmediatas }}
+      alertas_preventivas: ${{ steps.run.outputs.alertas_preventivas }}
+      fecha_reporte:       ${{ steps.run.outputs.fecha_reporte }}
+      motor_analisis:      ${{ steps.run.outputs.motor_analisis }}
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 pandas openpyxl pymupdf
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            pip install anthropic
+            echo "Motor: Claude API"
+          else
+            echo "Motor: Heuristico (agrega secret ANTHROPIC_API_KEY para usar Claude)"
+          fi
+
+      - name: Ejecutar scraper
+        id: run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAX_PAGINAS: ${{ github.event.inputs.max_paginas || '1' }}
+        run: |
+          python3 << 'PYEOF'
+          import os, sys
+          from datetime import datetime
+
+          exec(open('scripts/scraper.py').read())
+
+          max_pag = int(os.environ.get('MAX_PAGINAS', '1'))
+          fecha   = datetime.now().strftime('%Y%m%d_%H%M')
+          nombre  = f"alertas_digemid_{fecha}.xlsx"
+          ruta    = f"/tmp/{nombre}"
+
+          api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+          motor   = 'Claude API' if (api_key and api_key.startswith('sk-')) else 'Heuristico'
+          print(f"Motor de analisis: {motor}")
+
+          df = scrapear_alertas(max_paginas=max_pag, analizar_acciones=True)
+          exportar_excel(df, ruta)
+
+          total       = len(df)
+          inmediatas  = int((df['urgencia'] == 'INMEDIATA').sum())  if 'urgencia' in df.columns else 0
+          preventivas = int((df['urgencia'] == 'PREVENTIVA').sum()) if 'urgencia' in df.columns else 0
+          fecha_fmt   = datetime.now().strftime('%d/%m/%Y %H:%M')
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f"excel_name={nombre}\n")
+              fh.write(f"total_alertas={total}\n")
+              fh.write(f"alertas_inmediatas={inmediatas}\n")
+              fh.write(f"alertas_preventivas={preventivas}\n")
+              fh.write(f"fecha_reporte={fecha_fmt}\n")
+              fh.write(f"motor_analisis={motor}\n")
+
+          print(f"Excel: {ruta} | Total: {total} | Inmediatas: {inmediatas} | Preventivas: {preventivas}")
+          PYEOF
+
+      - name: Guardar Excel como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: excel-alertas
+          path: /tmp/alertas_digemid_*.xlsx
+          retention-days: 30
+
+  # ============================================================
+  # JOB 2 - Subir a Google Drive (carpeta Monitoreo de alertas)
+  # ============================================================
+  upload_drive:
+    name: "2 Subir a Google Drive"
+    needs: scrape
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.dry_run != 'true' }}
+    outputs:
+      drive_file_url: ${{ steps.upload.outputs.drive_file_url }}
+
+    steps:
+      - name: Descargar Excel
+        uses: actions/download-artifact@v4
+        with:
+          name: excel-alertas
+          path: /tmp/
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar Google Drive SDK
+        run: pip install google-api-python-client google-auth
+
+      - name: Subir a Drive
+        id: upload
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          EXCEL_NAME: ${{ needs.scrape.outputs.excel_name }}
+        run: |
+          python3 << 'PYEOF'
+          import os, json, glob
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+          from google.oauth2 import service_account
+
+          FOLDER_ID = "1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
+
+          creds_info = json.loads(os.environ['GOOGLE_SERVICE_ACCOUNT_JSON'])
+          creds = service_account.Credentials.from_service_account_info(
+              creds_info,
+              scopes=['https://www.googleapis.com/auth/drive']
+          )
+          service = build('drive', 'v3', credentials=creds)
+
+          # Verificar acceso a la carpeta
+          try:
+              meta = service.files().get(
+                  fileId=FOLDER_ID,
+                  fields='id,name',
+                  supportsAllDrives=True
+              ).execute()
+              print(f"Carpeta Drive: {meta['name']}")
+          except Exception as e:
+              raise RuntimeError(
+                  f"Sin acceso a la carpeta Drive {FOLDER_ID}.\n"
+                  f"Comparte la carpeta con el Service Account como Editor.\n{e}"
+              )
+
+          # Buscar el Excel
+          archivos = glob.glob('/tmp/alertas_digemid_*.xlsx')
+          if not archivos:
+              raise FileNotFoundError("No se encontro el Excel en /tmp/")
+          ruta_excel = sorted(archivos)[-1]
+          nombre     = os.environ['EXCEL_NAME']
+          print(f"Subiendo: {nombre} ({os.path.getsize(ruta_excel)/1024:.1f} KB)")
+
+          # Upload
+          metadata = {'name': nombre, 'parents': [FOLDER_ID]}
+          media    = MediaFileUpload(
+              ruta_excel,
+              mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              resumable=True
+          )
+          archivo = service.files().create(
+              body=metadata,
+              media_body=media,
+              fields='id,webViewLink,name',
+              supportsAllDrives=True
+          ).execute()
+
+          file_id  = archivo['id']
+          file_url = archivo.get('webViewLink', f'https://drive.google.com/file/d/{file_id}/view')
+          print(f"Subido OK: {file_url}")
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f"drive_file_url={file_url}\n")
+          PYEOF
+
+  # ============================================================
+  # JOB 3 - Enviar correo HTML
+  # ============================================================
+  send_email:
+    name: "3 Enviar correo"
+    needs: [scrape, upload_drive]
+    runs-on: ubuntu-latest
+    if: ${{ always() && github.event.inputs.dry_run != 'true' && needs.scrape.result == 'success' }}
+
+    steps:
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Enviar correo
+        env:
+          SMTP_HOST:      ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:      ${{ secrets.SMTP_PORT }}
+          SMTP_USER:      ${{ secrets.SMTP_USER }}
+          SMTP_PASS:      ${{ secrets.SMTP_PASS }}
+          DRIVE_FILE_URL: ${{ needs.upload_drive.outputs.drive_file_url }}
+          TOTAL:          ${{ needs.scrape.outputs.total_alertas }}
+          INMEDIATAS:     ${{ needs.scrape.outputs.alertas_inmediatas }}
+          PREVENTIVAS:    ${{ needs.scrape.outputs.alertas_preventivas }}
+          FECHA:          ${{ needs.scrape.outputs.fecha_reporte }}
+          EXCEL_NAME:     ${{ needs.scrape.outputs.excel_name }}
+          MOTOR:          ${{ needs.scrape.outputs.motor_analisis }}
+          DRIVE_STATUS:   ${{ needs.upload_drive.result }}
+        run: |
+          python3 << 'PYEOF'
+          import os, smtplib
+          from email.mime.multipart import MIMEMultipart
+          from email.mime.text import MIMEText
+
+          EMAIL_FROM   = "russbelt.aliaga@conkomerco.com"
+          EMAIL_TO     = "july.maita@conkomerco.com,finanzas@conkomerco.com"
+          FOLDER_URL   = "https://drive.google.com/drive/folders/1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
+
+          smtp_host      = os.environ['SMTP_HOST']
+          smtp_port      = int(os.environ.get('SMTP_PORT', '587'))
+          smtp_user      = os.environ['SMTP_USER']
+          smtp_pass      = os.environ['SMTP_PASS']
+          drive_file_url = os.environ.get('DRIVE_FILE_URL', '')
+          total          = os.environ.get('TOTAL', '0')
+          inmediatas     = os.environ.get('INMEDIATAS', '0')
+          preventivas    = os.environ.get('PREVENTIVAS', '0')
+          fecha          = os.environ.get('FECHA', '')
+          excel_name     = os.environ.get('EXCEL_NAME', 'alertas_digemid.xlsx')
+          motor          = os.environ.get('MOTOR', 'Heuristico')
+          drive_ok       = os.environ.get('DRIVE_STATUS', 'failure') == 'success'
+
+          n_inm = int(inmediatas)
+          n_pre = int(preventivas)
+
+          if n_inm > 0:
+              badge_color = "#C00000"
+              badge_texto = f"ALERTA: {n_inm} alerta(s) INMEDIATA(S) - ACCION REQUERIDA"
+          elif n_pre > 0:
+              badge_color = "#ED7D31"
+              badge_texto = f"{n_pre} alerta(s) preventiva(s) - Revisar"
+          else:
+              badge_color = "#2E75B6"
+              badge_texto = "Sin alertas urgentes en este periodo"
+
+          motor_txt = "Claude API (analisis semantico)" if motor == "Claude API" else "Heuristico (patrones)"
+
+          if drive_ok and drive_file_url:
+              botones = f"""
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                <tr>
+                  <td style="padding:0 8px;">
+                    <a href="{drive_file_url}"
+                       style="display:inline-block;background:#1F4E79;color:#fff;
+                              padding:13px 24px;border-radius:6px;text-decoration:none;
+                              font-weight:bold;font-size:14px;">
+                      Abrir Excel del periodo
+                    </a>
+                  </td>
+                  <td style="padding:0 8px;">
+                    <a href="{FOLDER_URL}"
+                       style="display:inline-block;background:#217346;color:#fff;
+                              padding:13px 24px;border-radius:6px;text-decoration:none;
+                              font-weight:bold;font-size:14px;">
+                      Ver carpeta completa
+                    </a>
+                  </td>
+                </tr>
+              </table>"""
+          else:
+              botones = f"""
+              <p style="color:#C00000;font-size:13px;text-align:center;">
+                El archivo no pudo subirse a Drive en este ciclo.<br>
+                <a href="{FOLDER_URL}" style="color:#1F4E79;">Ver carpeta en Drive</a>
+              </p>"""
+
+          html = f"""<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F0F2F5;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F0F2F5;padding:28px 0;">
+<tr><td align="center">
+<table width="620" cellpadding="0" cellspacing="0"
+       style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 3px 16px rgba(0,0,0,.12);">
+
+  <!-- HEADER -->
+  <tr><td style="background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);padding:26px 32px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td>
+        <p style="margin:0;color:#BDD7EE;font-size:11px;text-transform:uppercase;letter-spacing:1px;">
+          CONKOMERCO S.A.C. - Monitor Regulatorio
+        </p>
+        <h1 style="margin:6px 0 0;color:#fff;font-size:20px;font-weight:bold;">
+          Alertas Sanitarias DIGEMID
+        </h1>
+        <p style="margin:5px 0 0;color:#BDD7EE;font-size:13px;">
+          Reporte del {fecha} - hora Lima
+        </p>
+      </td>
+      <td align="right" valign="middle">
+        <span style="background:rgba(255,255,255,.15);color:#fff;font-size:11px;
+                     padding:5px 10px;border-radius:20px;">
+          {motor_txt}
+        </span>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <!-- BADGE -->
+  <tr><td style="padding:20px 32px 0;">
+    <div style="background:{badge_color};color:#fff;padding:12px 20px;
+                border-radius:8px;font-weight:bold;font-size:14px;text-align:center;">
+      {badge_texto}
+    </div>
+  </td></tr>
+
+  <!-- METRICAS -->
+  <tr><td style="padding:18px 32px;">
+    <table width="100%" cellspacing="10" cellpadding="0"><tr>
+      <td width="33%" style="background:#F0F5FF;border-radius:10px;padding:16px 10px;
+                              text-align:center;border-top:4px solid #1F4E79;">
+        <div style="font-size:34px;font-weight:bold;color:#1F4E79;">{total}</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">Total alertas</div>
+      </td>
+      <td width="33%" style="background:#FFF5F5;border-radius:10px;padding:16px 10px;
+                              text-align:center;border-top:4px solid #C00000;">
+        <div style="font-size:34px;font-weight:bold;color:#C00000;">{inmediatas}</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">Inmediatas</div>
+      </td>
+      <td width="33%" style="background:#FFFBF0;border-radius:10px;padding:16px 10px;
+                              text-align:center;border-top:4px solid #ED7D31;">
+        <div style="font-size:34px;font-weight:bold;color:#ED7D31;">{preventivas}</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;">Preventivas</div>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <!-- BOTONES -->
+  <tr><td style="padding:4px 32px 22px;text-align:center;">
+    {botones}
+    <p style="margin:12px 0 0;font-size:11px;color:#999;">
+      Archivo: <code style="background:#F4F6F9;padding:2px 6px;border-radius:3px;">{excel_name}</code>
+    </p>
+  </td></tr>
+
+  <!-- PASOS -->
+  <tr><td style="padding:0 32px 22px;">
+    <div style="background:#EBF3FB;border-left:4px solid #2E75B6;
+                padding:14px 18px;border-radius:0 8px 8px 0;">
+      <p style="margin:0 0 8px;font-size:13px;color:#1F4E79;font-weight:bold;">
+        Pasos de revision
+      </p>
+      <ol style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:1.9;">
+        <li>Abrir el Excel y filtrar columna <strong>Urgencia = INMEDIATA</strong> primero</li>
+        <li>Revisar <strong>Accion Principal</strong> y columna <strong>Dirigido a</strong></li>
+        <li>Comunicar internamente a CONKOMERCO / SOLTON PHARMA si corresponde</li>
+        <li>Registrar en sistema de farmacovigilancia si aplica</li>
+      </ol>
+    </div>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#F4F6F9;padding:14px 32px;border-top:1px solid #E5E8ED;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="font-size:11px;color:#999;">
+        Enviado automaticamente por Monitor DIGEMID via GitHub Actions
+      </td>
+      <td align="right" style="font-size:11px;">
+        <a href="https://www.digemid.minsa.gob.pe/alertas"
+           style="color:#1F4E79;text-decoration:none;">
+          digemid.minsa.gob.pe
+        </a>
+      </td>
+    </tr></table>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+          fecha_corta = fecha[:10] if fecha else ""
+          if n_inm > 0:
+              asunto = f"[DIGEMID {fecha_corta}] {n_inm} alerta(s) INMEDIATA(S) - Accion requerida"
+          elif n_pre > 0:
+              asunto = f"[DIGEMID {fecha_corta}] {n_pre} alerta(s) preventiva(s)"
+          else:
+              asunto = f"[DIGEMID {fecha_corta}] {total} alertas - Sin urgencias"
+
+          msg = MIMEMultipart('alternative')
+          msg['Subject'] = asunto
+          msg['From']    = f"Monitor DIGEMID CONKOMERCO <{EMAIL_FROM}>"
+          msg['To']      = EMAIL_TO
+          msg['Reply-To']= EMAIL_FROM
+          msg.attach(MIMEText(html, 'html'))
+
+          destinatarios = [e.strip() for e in EMAIL_TO.split(',')]
+
+          with smtplib.SMTP(smtp_host, smtp_port) as server:
+              server.ehlo()
+              server.starttls()
+              server.login(smtp_user, smtp_pass)
+              server.sendmail(EMAIL_FROM, destinatarios, msg.as_string())
+
+          print(f"Correo enviado: {EMAIL_FROM} -> {EMAIL_TO}")
+          print(f"Asunto: {asunto}")
+          PYEOF
+
+  # ============================================================
+  # JOB 4 - Notificar fallo
+  # ============================================================
+  notify_failure:
+    name: "4 Notificar fallo"
+    needs: [scrape, upload_drive, send_email]
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
+
+    steps:
+      - name: Enviar alerta de fallo
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          RUN_URL:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 << 'PYEOF'
+          import os, smtplib
+          from email.mime.multipart import MIMEMultipart
+          from email.mime.text import MIMEText
+
+          EMAIL_FROM = "russbelt.aliaga@conkomerco.com"
+          EMAIL_TO   = "july.maita@conkomerco.com,finanzas@conkomerco.com"
+          run_url    = os.environ['RUN_URL']
+
+          html = f"""
+          <div style="font-family:Arial;padding:24px;background:#FFF5F5;
+                      border-left:5px solid #C00000;border-radius:4px;">
+            <h2 style="color:#C00000;margin-top:0;">Monitor DIGEMID - Error en ejecucion</h2>
+            <p>El workflow automatico de alertas DIGEMID fallo.</p>
+            <p>
+              <a href="{run_url}"
+                 style="background:#C00000;color:#fff;padding:10px 20px;
+                        border-radius:6px;text-decoration:none;font-weight:bold;">
+                Ver log en GitHub Actions
+              </a>
+            </p>
+            <hr style="border:none;border-top:1px solid #FCCBCB;margin:16px 0;">
+            <p style="font-size:11px;color:#999;">Monitor DIGEMID - CONKOMERCO S.A.C.</p>
+          </div>"""
+
+          msg = MIMEMultipart('alternative')
+          msg['Subject'] = "[ERROR] Monitor DIGEMID - Fallo en ejecucion automatica"
+          msg['From']    = f"Monitor DIGEMID CONKOMERCO <{EMAIL_FROM}>"
+          msg['To']      = EMAIL_TO
+          msg.attach(MIMEText(html, 'html'))
+
+          destinatarios = [e.strip() for e in EMAIL_TO.split(',')]
+
+          with smtplib.SMTP(os.environ['SMTP_HOST'], int(os.environ.get('SMTP_PORT', 587))) as s:
+              s.ehlo()
+              s.starttls()
+              s.login(os.environ['SMTP_USER'], os.environ['SMTP_PASS'])
+              s.sendmail(EMAIL_FROM, destinatarios, msg.as_string())
+
+          print("Alerta de fallo enviada")
+          PYEOF
