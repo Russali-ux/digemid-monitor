@@ -20,8 +20,8 @@ env:
   TZ: "America/Lima"
   DRIVE_FOLDER_ID: "1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
   FOLDER_URL: "https://drive.google.com/drive/folders/1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
-  EMAIL_FROM: "russbelt.aliaga@conkomerco.com"
-  EMAIL_TO: "july.maita@conkomerco.com,finanzas@conkomerco.com"
+  EMAIL_FROM: "conkosafe.ai@gmail.com"
+  EMAIL_TO: "july.maita@conkomerco.com,finanzas@conkomerco.com,conkosafe.ai@gmail.com"
 
 jobs:
 
@@ -233,8 +233,8 @@ jobs:
           from email.mime.multipart import MIMEMultipart
           from email.mime.text import MIMEText
 
-          EMAIL_FROM   = "russbelt.aliaga@conkomerco.com"
-          EMAIL_TO     = "july.maita@conkomerco.com,finanzas@conkomerco.com"
+          EMAIL_FROM   = "conkosafe.ai@gmail.com"
+          EMAIL_TO     = "july.maita@conkomerco.com,finanzas@conkomerco.com,conkosafe.ai@gmail.com"
           FOLDER_URL   = "https://drive.google.com/drive/folders/1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
 
           smtp_host      = os.environ['SMTP_HOST']
@@ -450,8 +450,8 @@ jobs:
           from email.mime.multipart import MIMEMultipart
           from email.mime.text import MIMEText
 
-          EMAIL_FROM = "russbelt.aliaga@conkomerco.com"
-          EMAIL_TO   = "july.maita@conkomerco.com,finanzas@conkomerco.com"
+          EMAIL_FROM = "conkosafe.ai@gmail.com"
+          EMAIL_TO   = "july.maita@conkomerco.com,finanzas@conkomerco.com,conkosafe.ai@gmail.com"
           run_url    = os.environ['RUN_URL']
 
           html = f"""
