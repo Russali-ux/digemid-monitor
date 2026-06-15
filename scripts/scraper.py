@@ -9,7 +9,7 @@ Uso standalone:
 Uso como módulo (desde skill):
     exec(open('scripts/scraper.py').read())
     df = scrapear_alertas(max_paginas=2, analizar_acciones=True)
-    exportar_excel(df, '/mnt/user-data/outputs/alertas.xlsx')
+    exportar_excel(df, '/tmp/alertas.xlsx')
 """
 
 # ── Auto-install de dependencias ───────────────────────────────────────────────
@@ -449,5 +449,5 @@ if __name__ == "__main__":
     df = scrapear_alertas(max_paginas=1, analizar_acciones=True)
 
     fecha = datetime.now().strftime("%Y%m%d_%H%M")
-    ruta  = f"/mnt/user-data/outputs/alertas_digemid_{fecha}.xlsx"
+    ruta  = f"/tmp/alertas_digemid_{fecha}.xlsx"
     exportar_excel(df, ruta)
