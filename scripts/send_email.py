@@ -44,7 +44,7 @@ html = (
     '<tr><td style="background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);padding:26px 32px;">'
     '<table width="100%" cellpadding="0" cellspacing="0"><tr><td>'
     '<p style="margin:0;color:#BDD7EE;font-size:11px;text-transform:uppercase;letter-spacing:1px;">'
-    'CONKOMERCO S.A.C. - Monitor Regulatorio</p>'
+    'CONKOSAFE IA - PV INTELligence</p>'
     '<h1 style="margin:6px 0 0;color:#fff;font-size:20px;font-weight:bold;">'
     'Alertas Sanitarias DIGEMID</h1>'
     f'<p style="margin:5px 0 0;color:#BDD7EE;font-size:13px;">Reporte del {fecha} - hora Lima</p>'
