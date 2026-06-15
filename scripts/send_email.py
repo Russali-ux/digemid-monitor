@@ -5,7 +5,7 @@ from email.mime.base import MIMEBase
 from email import encoders
 
 EMAIL_FROM = "conkosafe.ai@gmail.com"
-EMAIL_TO   = "july.maita@conkomerco.com,finanzas@conkomerco.com,conkosafe.ai@gmail.com"
+EMAIL_TO   = "finanzas@conkomerco.com,conkosafe.ai@gmail.com"
 
 smtp_host   = os.environ['SMTP_HOST']
 smtp_port   = int(os.environ.get('SMTP_PORT', '587'))
