@@ -3,7 +3,6 @@ name: "Monitor DIGEMID - Alertas Diarias"
 on:
   schedule:
     - cron: "0 13 */3 * *"
-
   workflow_dispatch:
     inputs:
       max_paginas:
@@ -11,27 +10,18 @@ on:
         required: false
         default: "1"
       dry_run:
-        description: "Dry run (no envia mail ni sube a Drive)"
+        description: "Dry run (no envia mail)"
         type: boolean
         default: false
 
 env:
   PYTHON_VERSION: "3.11"
   TZ: "America/Lima"
-<<<<<<< HEAD
-  DRIVE_FOLDER_ID: "1LOygkKnbednAw-eCPLM0-9TXLGj16hw4"
-=======
-  DRIVE_FOLDER_ID: "1NinhrteZ0_J25nw_FrT7f_xPNPku4nXm"
->>>>>>> afe99eab2a743784cb100a7a77c65ad888eea198
-  FOLDER_URL: "https://drive.google.com/drive/folders/1LOygkKnbednAw-eCPLM0-9TXLGj16hw4"
   EMAIL_FROM: "conkosafe.ai@gmail.com"
   EMAIL_TO: "july.maita@conkomerco.com,finanzas@conkomerco.com,conkosafe.ai@gmail.com"
 
 jobs:
 
-  # ============================================================
-  # JOB 1 - Scraping y generacion del Excel
-  # ============================================================
   scrape:
     name: "1 Scraping DIGEMID"
     runs-on: ubuntu-latest
@@ -42,17 +32,13 @@ jobs:
       alertas_preventivas: ${{ steps.run.outputs.alertas_preventivas }}
       fecha_reporte:       ${{ steps.run.outputs.fecha_reporte }}
       motor_analisis:      ${{ steps.run.outputs.motor_analisis }}
-
     steps:
       - name: Checkout repositorio
         uses: actions/checkout@v4
-
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
       - name: Instalar dependencias
         run: |
           pip install --upgrade pip
@@ -63,15 +49,12 @@ jobs:
           else
             echo "Motor: Heuristico"
           fi
-
       - name: Ejecutar scraper
         id: run
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MAX_PAGINAS: ${{ github.event.inputs.max_paginas || '1' }}
-        run: |
-          python3 scripts/run_scraper.py
-
+        run: python3 scripts/run_scraper.py
       - name: Guardar Excel como artifact
         uses: actions/upload-artifact@v4
         with:
@@ -79,93 +62,49 @@ jobs:
           path: /tmp/alertas_digemid_*.xlsx
           retention-days: 30
 
-  # ============================================================
-  # JOB 2 - Subir a Google Drive
-  # ============================================================
-  upload_drive:
-    name: "2 Subir a Google Drive"
+  send_email:
+    name: "2 Enviar correo con Excel adjunto"
     needs: scrape
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.dry_run != 'true' }}
-    outputs:
-      drive_file_url: ${{ steps.upload.outputs.drive_file_url }}
-
+    if: ${{ always() && github.event.inputs.dry_run != 'true' && needs.scrape.result == 'success' }}
     steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
       - name: Descargar Excel
         uses: actions/download-artifact@v4
         with:
           name: excel-alertas
           path: /tmp/
-
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Instalar Google Drive SDK
-        run: pip install google-api-python-client google-auth
-
-      - name: Subir a Drive
-        id: upload
+      - name: Enviar correo con adjunto
         env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          EXCEL_NAME: ${{ needs.scrape.outputs.excel_name }}
-        run: |
-          python3 scripts/upload_drive.py
+          SMTP_HOST:   ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:   ${{ secrets.SMTP_PORT }}
+          SMTP_USER:   ${{ secrets.SMTP_USER }}
+          SMTP_PASS:   ${{ secrets.SMTP_PASS }}
+          TOTAL:       ${{ needs.scrape.outputs.total_alertas }}
+          INMEDIATAS:  ${{ needs.scrape.outputs.alertas_inmediatas }}
+          PREVENTIVAS: ${{ needs.scrape.outputs.alertas_preventivas }}
+          FECHA:       ${{ needs.scrape.outputs.fecha_reporte }}
+          EXCEL_NAME:  ${{ needs.scrape.outputs.excel_name }}
+          MOTOR:       ${{ needs.scrape.outputs.motor_analisis }}
+        run: python3 scripts/send_email.py
 
-  # ============================================================
-  # JOB 3 - Enviar correo HTML
-  # ============================================================
-  send_email:
-    name: "3 Enviar correo"
-    needs: [scrape, upload_drive]
-    runs-on: ubuntu-latest
-    if: ${{ always() && github.event.inputs.dry_run != 'true' && needs.scrape.result == 'success' }}
-
-    steps:
-      - name: Checkout repositorio
-        uses: actions/checkout@v4
-
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Enviar correo
-        env:
-          SMTP_HOST:      ${{ secrets.SMTP_HOST }}
-          SMTP_PORT:      ${{ secrets.SMTP_PORT }}
-          SMTP_USER:      ${{ secrets.SMTP_USER }}
-          SMTP_PASS:      ${{ secrets.SMTP_PASS }}
-          DRIVE_FILE_URL: ${{ needs.upload_drive.outputs.drive_file_url }}
-          TOTAL:          ${{ needs.scrape.outputs.total_alertas }}
-          INMEDIATAS:     ${{ needs.scrape.outputs.alertas_inmediatas }}
-          PREVENTIVAS:    ${{ needs.scrape.outputs.alertas_preventivas }}
-          FECHA:          ${{ needs.scrape.outputs.fecha_reporte }}
-          EXCEL_NAME:     ${{ needs.scrape.outputs.excel_name }}
-          MOTOR:          ${{ needs.scrape.outputs.motor_analisis }}
-          DRIVE_STATUS:   ${{ needs.upload_drive.result }}
-        run: |
-          python3 scripts/send_email.py
-
-  # ============================================================
-  # JOB 4 - Notificar fallo
-  # ============================================================
   notify_failure:
-    name: "4 Notificar fallo"
-    needs: [scrape, upload_drive, send_email]
+    name: "3 Notificar fallo"
+    needs: [scrape, send_email]
     runs-on: ubuntu-latest
     if: ${{ failure() }}
-
     steps:
       - name: Checkout repositorio
         uses: actions/checkout@v4
-
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
       - name: Enviar alerta de fallo
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -173,5 +112,4 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           RUN_URL:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          python3 scripts/notify_failure.py
+        run: python3 scripts/notify_failure.py
