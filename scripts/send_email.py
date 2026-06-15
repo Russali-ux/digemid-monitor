@@ -81,7 +81,7 @@ html = (
     '<ol style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:1.9;">'
     '<li>Abrir el Excel adjunto y filtrar columna <strong>Urgencia = INMEDIATA</strong> primero</li>'
     '<li>Revisar <strong>Accion Principal</strong> y columna <strong>Dirigido a</strong></li>'
-    '<li>Comunicar internamente a CONKOMERCO / SOLTON PHARMA si corresponde</li>'
+    '<li>Comunicar internamente a Dirección Técnica/Asuntos Regulatorios/Área médica/Calidad si corresponde</li>'
     '<li>Registrar en sistema de farmacovigilancia si aplica</li>'
     '</ol></div></td></tr>'
     '<tr><td style="background:#F4F6F9;padding:14px 32px;border-top:1px solid #E5E8ED;">'
