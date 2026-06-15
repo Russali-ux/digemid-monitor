@@ -3,7 +3,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 EMAIL_FROM = "conkosafe.ai@gmail.com"
-EMAIL_TO   = "july.maita@conkomerco.com,finanzas@conkomerco.com,conkosafe.ai@gmail.com"
+EMAIL_TO   = "finanzas@conkomerco.com,conkosafe.ai@gmail.com"
 run_url    = os.environ.get('RUN_URL', '#')
 
 html = (
