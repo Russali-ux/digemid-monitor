@@ -110,7 +110,7 @@ ruta_excel = sorted(archivos)[-1]
 msg = MIMEMultipart('mixed')
 msg['Subject'] = asunto
 msg['From']    = f"Monitor DIGEMID CONKOMERCO <{EMAIL_FROM}>"
-msg['To']      = EMAIL_TO
+msg['Bcc']      = EMAIL_TO
 msg['Reply-To']= EMAIL_FROM
 msg.attach(MIMEText(html, 'html'))
 
