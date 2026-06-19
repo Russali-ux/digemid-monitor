@@ -86,7 +86,7 @@ html = (
     '</ol></div></td></tr>'
     '<tr><td style="background:#F4F6F9;padding:14px 32px;border-top:1px solid #E5E8ED;">'
     '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
-    '<td style="font-size:11px;color:#999;">Enviado automaticamente por Conkosafe IA - PV Intelligence</td>'
+    '<td style="font-size:11px;color:#999;">Enviado automaticamente por Conkosafe IA - PV Intelligence, CONKOMERCO SAC</td>'
     '<td align="right"><a href="https://www.digemid.minsa.gob.pe/alertas" '
     'style="color:#1F4E79;text-decoration:none;font-size:11px;">digemid.minsa.gob.pe</a></td>'
     '</tr></table></td></tr>'
