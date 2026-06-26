@@ -53,6 +53,7 @@ html = (
     # Header
     '<tr><td style="background:linear-gradient(135deg,#1F4E79 0%,#2E75B6 100%);padding:26px 32px;">'
     '<table width="100%" cellpadding="0" cellspacing="0"><tr><td>'
+<<<<<<< HEAD
     '<p style="margin:0;color:#BDD7EE;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;">'
     'CONKOSAFE IA &mdash; PV Intelligence</p>'
     '<h1 style="margin:6px 0 0;color:#fff;font-size:21px;font-weight:bold;line-height:1.3;">'
@@ -69,6 +70,18 @@ html = (
     f'<tr><td style="padding:20px 32px 0;">'
     f'<div style="background:{badge_color};color:#fff;padding:13px 20px;border-radius:8px;'
     f'font-weight:bold;font-size:14px;text-align:center;letter-spacing:.3px;">'
+=======
+    '<p style="margin:0;color:#BDD7EE;font-size:11px;text-transform:uppercase;letter-spacing:1px;">'
+    'CONKOSAFE IA - PV INTELLIGENCE</p>'
+    '<h1 style="margin:6px 0 0;color:#fff;font-size:20px;font-weight:bold;">'
+    'Alertas Sanitarias DIGEMID</h1>'
+    f'<p style="margin:5px 0 0;color:#BDD7EE;font-size:13px;">Reporte del {fecha} - hora Lima</p>'
+    f'</td><td align="right" valign="middle"><span style="background:rgba(255,255,255,.15);'
+    f'color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;">{motor_txt}</span></td>'
+    '</tr></table></td></tr>'
+    f'<tr><td style="padding:20px 32px 0;"><div style="background:{badge_color};color:#fff;'
+    f'padding:12px 20px;border-radius:8px;font-weight:bold;font-size:14px;text-align:center;">'
+>>>>>>> e1152f6ce9adbe7b975f8f223f63ed77f9fac40e
     f'{badge_texto}</div></td></tr>'
 
     # Tarjetas KPI
@@ -110,6 +123,7 @@ html = (
     '<tr><td style="padding:0 32px 22px;">'
     '<div style="background:#F4FBF0;border-left:4px solid #375623;padding:14px 18px;'
     'border-radius:0 8px 8px 0;">'
+<<<<<<< HEAD
     '<p style="margin:0 0 8px;font-size:13px;color:#375623;font-weight:bold;">'
     '&#9989; Pasos de revisi&oacute;n recomendados</p>'
     '<ol style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:2;">'
@@ -118,6 +132,14 @@ html = (
     '<li>Identificar los productos/IFAs de tu portafolio en columna <strong>Producto / IFA</strong></li>'
     '<li>Comunicar a Direcci&oacute;n T&eacute;cnica / Asuntos Regulatorios / Calidad seg&uacute;n corresponda</li>'
     '<li>Registrar evaluaci&oacute;n en el sistema de farmacovigilancia si aplica (D.S. 016-2011-SA Art. 55)</li>'
+=======
+    '<p style="margin:0 0 8px;font-size:13px;color:#1F4E79;font-weight:bold;">Pasos de revision</p>'
+    '<ol style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:1.9;">'
+    '<li>Abrir el Excel adjunto y filtrar columna <strong>Urgencia = INMEDIATA</strong> primero</li>'
+    '<li>Revisar <strong>Accion Principal</strong> y columna <strong>Dirigido a</strong></li>'
+    '<li>Comunicar internamente a Dirección Técnica/Asuntos <strong>Regulatorios/Área médica/Calidad si corresponde</li>'
+    '<li>Registrar en sistema de farmacovigilancia si aplica</li>'
+>>>>>>> e1152f6ce9adbe7b975f8f223f63ed77f9fac40e
     '</ol></div></td></tr>'
 
     # Nota regulatoria
@@ -133,6 +155,7 @@ html = (
     # Footer
     '<tr><td style="background:#F4F6F9;padding:14px 32px;border-top:1px solid #E5E8ED;">'
     '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+<<<<<<< HEAD
     '<td style="font-size:11px;color:#999;">'
     'Enviado autom&aacute;ticamente por CONKOSAFE IA - PV INTELLIGENCE, CONKOMERCO S.A.C.'
     '</td>'
@@ -143,6 +166,13 @@ html = (
 
     '</table></td></tr></table>'
     '</body></html>'
+=======
+    '<td style="font-size:11px;color:#999;">Enviado automaticamente por Conkosafe IA - PV Intelligence, CONKOMERCO SAC</td>'
+    '<td align="right"><a href="https://www.digemid.minsa.gob.pe/alertas" '
+    'style="color:#1F4E79;text-decoration:none;font-size:11px;">digemid.minsa.gob.pe</a></td>'
+    '</tr></table></td></tr>'
+    '</table></td></tr></table></body></html>'
+>>>>>>> e1152f6ce9adbe7b975f8f223f63ed77f9fac40e
 )
 
 # Asunto
@@ -162,11 +192,19 @@ ruta_excel = sorted(archivos)[-1]
 
 # Construir mensaje
 msg = MIMEMultipart('mixed')
+<<<<<<< HEAD
 msg['Subject']  = asunto
 msg['From']     = f"MODIFICACIONES por Seguridad en Registro Sanitario <{EMAIL_FROM}>"
 msg['To']       = EMAIL_FROM        # Solo el remitente visible en "Para"
 # ✅ NO se agrega msg['Bcc'] — evita que Gmail exponga los destinatarios
 msg['Reply-To'] = EMAIL_FROM
+=======
+msg['Subject'] = asunto
+msg['From']    = f"Alertas Sanitarias - PV Intelligence <{EMAIL_FROM}>"
+msg['To']       = EMAIL_FROM
+msg['Bcc']      = EMAIL_TO
+msg['Reply-To']= EMAIL_FROM
+>>>>>>> e1152f6ce9adbe7b975f8f223f63ed77f9fac40e
 msg.attach(MIMEText(html, 'html'))
 
 # Adjuntar Excel
