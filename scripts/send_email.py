@@ -107,12 +107,13 @@ if not archivos:
     raise FileNotFoundError("No se encontro el Excel en /tmp/")
 ruta_excel = sorted(archivos)[-1]
 
+# ✅ Solo EMAIL_FROM en "To" — ningún destinatario visible
+# ✅ Sin header "Bcc" — evita que Gmail lo exponga a los receptores
 msg = MIMEMultipart('mixed')
-msg['Subject'] = asunto
-msg['From']    = f"Alertas Sanitarias - PV Intelligence <{EMAIL_FROM}>"
+msg['Subject']  = asunto
+msg['From']     = f"Alertas Sanitarias - PV Intelligence <{EMAIL_FROM}>"
 msg['To']       = EMAIL_FROM
-msg['Bcc']      = EMAIL_TO
-msg['Reply-To']= EMAIL_FROM
+msg['Reply-To'] = EMAIL_FROM
 msg.attach(MIMEText(html, 'html'))
 
 # Adjunto Excel
@@ -123,7 +124,8 @@ encoders.encode_base64(adjunto)
 adjunto.add_header('Content-Disposition', f'attachment; filename="{excel_name}"')
 msg.attach(adjunto)
 
-destinatarios = [e.strip() for e in EMAIL_TO.split(',')]
+# ✅ Destinatarios solo en el envelope SMTP — nunca aparecen en el correo
+destinatarios = [e.strip() for e in EMAIL_TO.split(',') if e.strip()]
 
 with smtplib.SMTP(smtp_host, smtp_port) as server:
     server.ehlo()
@@ -131,5 +133,5 @@ with smtplib.SMTP(smtp_host, smtp_port) as server:
     server.login(smtp_user, smtp_pass)
     server.sendmail(EMAIL_FROM, destinatarios, msg.as_string())
 
-print(f"Correo con adjunto enviado: {EMAIL_FROM} -> {EMAIL_TO}")
+print(f"Correo enviado: {EMAIL_FROM} -> {len(destinatarios)} destinatarios (ocultos)")
 print(f"Asunto: {asunto}")
