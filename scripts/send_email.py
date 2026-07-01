@@ -1,5 +1,6 @@
 """
-send_email.py — Envía correo HTML con Excel de modificatorias DIGEMID adjunto.
+send_email.py — Envía correo HTML con Excel de Alertas DIGEMID adjunto
+(falsificados, retiros del mercado y control de calidad).
 Remitente: conkosafe.ai@gmail.com
 Destinatarios: ocultos (BCC via envelope SMTP, sin header Bcc en el mensaje)
 """
@@ -21,7 +22,7 @@ total       = os.environ.get('TOTAL', '0')
 inmediatas  = os.environ.get('INMEDIATAS', '0')
 preventivas = os.environ.get('PREVENTIVAS', '0')
 fecha       = os.environ.get('FECHA', '')
-excel_name  = os.environ.get('EXCEL_NAME', 'modificatorias_digemid.xlsx')
+excel_name  = os.environ.get('EXCEL_NAME', 'alertas_digemid.xlsx')
 motor       = os.environ.get('MOTOR', 'Heuristico')
 
 n_inm = int(inmediatas)
@@ -31,13 +32,13 @@ n_tot = int(total)
 # Badge de estado
 if n_inm > 0:
     badge_color = "#C00000"
-    badge_texto = f"ATENCION: {n_inm} modificatoria(s) con accion INMEDIATA requerida"
+    badge_texto = f"ATENCION: {n_inm} alerta(s) con accion INMEDIATA requerida"
 elif n_pre > 0:
     badge_color = "#ED7D31"
-    badge_texto = f"{n_pre} modificatoria(s) PREVENTIVA(S) — Evaluar en 15 dias habiles"
+    badge_texto = f"{n_pre} alerta(s) PREVENTIVA(S) — Revisar y tomar medidas"
 else:
     badge_color = "#2E75B6"
-    badge_texto = f"{n_tot} actualizaciones de seguridad — Sin urgencias criticas"
+    badge_texto = f"{n_tot} alerta(s) sanitaria(s) — Sin urgencias criticas"
 
 motor_txt = "Claude API" if motor == "Claude API" else "Motor Heuristico"
 
@@ -54,9 +55,9 @@ html = (
     '<p style="margin:0;color:#BDD7EE;font-size:11px;text-transform:uppercase;letter-spacing:1.2px;">'
     'CONKOSAFE IA &mdash; PV Intelligence</p>'
     '<h1 style="margin:6px 0 0;color:#fff;font-size:21px;font-weight:bold;line-height:1.3;">'
-    'Modificaciones por seguridad Registro Sanitario</h1>'
+    'Alertas Sanitarias DIGEMID</h1>'
     '<p style="margin:4px 0 0;color:#BDD7EE;font-size:12px;">'
-    f'Actualizaciones de Seguridad DIGEMID &mdash; {fecha} hora Lima</p>'
+    f'Falsificados, Retiros y Calidad &mdash; {fecha} hora Lima</p>'
     '</td>'
     f'<td align="right" valign="middle" style="padding-left:16px;">'
     f'<span style="background:rgba(255,255,255,.15);color:#fff;font-size:11px;'
@@ -71,11 +72,11 @@ html = (
     '<td width="33%" style="background:#F0F5FF;border-radius:10px;padding:16px 10px;'
     'text-align:center;border-top:4px solid #1F4E79;">'
     f'<div style="font-size:36px;font-weight:bold;color:#1F4E79;">{total}</div>'
-    '<div style="font-size:12px;color:#555;margin-top:5px;">Actualizaciones<br>de seguridad</div></td>'
+    '<div style="font-size:12px;color:#555;margin-top:5px;">Alertas<br>Sanitarias</div></td>'
     '<td width="33%" style="background:#FFFBF0;border-radius:10px;padding:16px 10px;'
     'text-align:center;border-top:4px solid #ED7D31;">'
     f'<div style="font-size:36px;font-weight:bold;color:#ED7D31;">{preventivas}</div>'
-    '<div style="font-size:12px;color:#555;margin-top:5px;">Preventivas<br>(15 d&iacute;as h&aacute;biles)</div></td>'
+    '<div style="font-size:12px;color:#555;margin-top:5px;">Preventivas<br>(seguimiento)</div></td>'
     '<td width="33%" style="background:#FFF5F5;border-radius:10px;padding:16px 10px;'
     'text-align:center;border-top:4px solid #C00000;">'
     f'<div style="font-size:36px;font-weight:bold;color:#C00000;">{inmediatas}</div>'
@@ -88,7 +89,8 @@ html = (
     '&#128206; Excel adjunto a este correo</p>'
     f'<p style="margin:0;font-size:12px;color:#555;">{excel_name}</p>'
     '<p style="margin:6px 0 0;font-size:11px;color:#888;">'
-    'Contiene las 10 actualizaciones de seguridad m&aacute;s recientes publicadas por DIGEMID'
+    'Contiene las alertas sanitarias m&aacute;s recientes publicadas por DIGEMID '
+    '(productos falsificados, retiros del mercado y control de calidad)'
     '</p></div></td></tr>'
     '<tr><td style="padding:0 32px 22px;">'
     '<div style="background:#F4FBF0;border-left:4px solid #375623;padding:14px 18px;'
@@ -97,18 +99,18 @@ html = (
     '&#9989; Pasos de revisi&oacute;n recomendados</p>'
     '<ol style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:2;">'
     '<li>Abrir el Excel adjunto &mdash; columna <strong>Urgencia</strong> ya viene coloreada</li>'
-    '<li>Revisar <strong>Acci&oacute;n Requerida</strong> y <strong>Indicador Tiempos</strong> (verde)</li>'
-    '<li>Identificar los productos/IFAs de tu portafolio en columna <strong>Producto / IFA</strong></li>'
-    '<li>Comunicar a Direcci&oacute;n T&eacute;cnica / Asuntos Regulatorios / Calidad seg&uacute;n corresponda</li>'
-    '<li>Registrar evaluaci&oacute;n en el sistema de farmacovigilancia si aplica (D.S. 016-2011-SA Art. 55)</li>'
+    '<li>Revisar <strong>Acci&oacute;n Principal</strong> (retiro, no comercializar, suspensi&oacute;n, etc.)</li>'
+    '<li>Verificar si el producto/laboratorio afecta tu cadena de distribuci&oacute;n o portafolio</li>'
+    '<li>Comunicar a Almac&eacute;n / Compras / Direcci&oacute;n T&eacute;cnica seg&uacute;n corresponda</li>'
+    '<li>Registrar la alerta y la acci&oacute;n tomada en el registro interno de farmacovigilancia/calidad</li>'
     '</ol></div></td></tr>'
     '<tr><td style="padding:0 32px 22px;">'
     '<div style="background:#FFFBF0;border-left:4px solid #ED7D31;padding:12px 18px;'
     'border-radius:0 8px 8px 0;">'
     '<p style="margin:0;font-size:12px;color:#7F4B00;">'
-    '<strong>&#9201; Plazo regulatorio:</strong> Las actualizaciones de seguridad requieren evaluaci&oacute;n '
-    'e informe a DIGEMID en <strong>15 d&iacute;as h&aacute;biles</strong> desde la publicaci&oacute;n '
-    '(Art. 55 D.S. 016-2011-SA / ICH E2C).'
+    '<strong>&#9201; Recordatorio:</strong> Las alertas de urgencia <strong>INMEDIATA</strong> '
+    '(falsificaci&oacute;n, retiro del mercado) requieren verificaci&oacute;n y acci&oacute;n sin demora '
+    'en almac&eacute;n y puntos de venta.'
     '</p></div></td></tr>'
     '<tr><td style="background:#F4F6F9;padding:14px 32px;border-top:1px solid #E5E8ED;">'
     '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
@@ -116,7 +118,7 @@ html = (
     'Enviado autom&aacute;ticamente por CONKOSAFE IA - PV INTELLIGENCE, CONKOMERCO S.A.C.'
     '</td>'
     '<td align="right">'
-    '<a href="https://www.digemid.minsa.gob.pe/webDigemid/publicaciones/alertas-modificaciones/modificaciones/" '
+    '<a href="https://www.digemid.minsa.gob.pe/webDigemid/publicaciones/alertas-modificaciones/alertas/" '
     'style="color:#1F4E79;text-decoration:none;font-size:11px;">digemid.minsa.gob.pe</a>'
     '</td></tr></table></td></tr>'
     '</table></td></tr></table>'
@@ -126,16 +128,17 @@ html = (
 # Asunto
 fecha_corta = fecha[:10] if fecha else ""
 if n_inm > 0:
-    asunto = f"[DIGEMID MOD {fecha_corta}] {n_inm} modificatoria(s) INMEDIATA(S) — Accion requerida"
+    asunto = f"[DIGEMID ALERTA {fecha_corta}] {n_inm} alerta(s) INMEDIATA(S) — Accion requerida"
 elif n_pre > 0:
-    asunto = f"[DIGEMID MOD {fecha_corta}] {n_pre} actualizacion(es) de seguridad — Evaluar en 15 dias"
+    asunto = f"[DIGEMID ALERTA {fecha_corta}] {n_pre} alerta(s) PREVENTIVA(S)"
 else:
-    asunto = f"[DIGEMID MOD {fecha_corta}] {n_tot} actualizaciones de seguridad — Sin urgencias"
+    asunto = f"[DIGEMID ALERTA {fecha_corta}] {n_tot} alerta(s) sanitaria(s) — Sin urgencias"
 
-# Buscar Excel generado
-archivos = glob.glob('/tmp/modificatorias_digemid_*.xlsx')
+# Buscar Excel generado — el scraper de alertas nombra el archivo
+# alertas_digemid_YYYYMMDD_HHMM.xlsx; si el patrón cambia, cae a cualquier .xlsx en /tmp
+archivos = glob.glob('/tmp/alertas_digemid_*.xlsx') or glob.glob('/tmp/*.xlsx')
 if not archivos:
-    raise FileNotFoundError("No se encontro el Excel de modificatorias en /tmp/")
+    raise FileNotFoundError("No se encontro ningun Excel de alertas en /tmp/")
 ruta_excel = sorted(archivos)[-1]
 
 # Construir mensaje
