@@ -3,8 +3,13 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2 import service_account
 
-FOLDER_ID  = "1LOygkKnbednAw-eCPLM0-9TXLGj16hw4"
-FOLDER_URL = "https://drive.google.com/drive/folders/1LOygkKnbednAw-eCPLM0-9TXLGj16hw4"
+# FOLDER_ID actualizado: antes apuntaba a 1LOygkKnbednAw-eCPLM0-9TXLGj16hw4,
+# una carpeta distinta a la que realmente se está revisando
+# (https://drive.google.com/drive/u/0/folders/1tVXOQ0WgA3rzhPkNVtGhDoYlwopg44ko).
+# Por eso los archivos "se subían" (si el script llegaba a correr) pero nunca
+# aparecían donde se buscaban.
+FOLDER_ID  = "1tVXOQ0WgA3rzhPkNVtGhDoYlwopg44ko"
+FOLDER_URL = "https://drive.google.com/drive/folders/1tVXOQ0WgA3rzhPkNVtGhDoYlwopg44ko"
 
 creds_info = json.loads(os.environ['GOOGLE_SERVICE_ACCOUNT_JSON'])
 creds = service_account.Credentials.from_service_account_info(

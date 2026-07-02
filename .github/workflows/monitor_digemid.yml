@@ -43,6 +43,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install requests beautifulsoup4 pandas openpyxl pymupdf
+          pip install google-api-python-client google-auth
           if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
             pip install anthropic
             echo "Motor: Claude API"
@@ -62,8 +63,33 @@ jobs:
           path: /tmp/alertas_digemid_*.xlsx
           retention-days: 30
 
+  upload_drive:
+    name: "2 Subir Excel a Google Drive"
+    needs: scrape
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.scrape.result == 'success' }}
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+      - name: Descargar Excel
+        uses: actions/download-artifact@v4
+        with:
+          name: excel-alertas
+          path: /tmp/
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Instalar dependencias
+        run: pip install google-api-python-client google-auth
+      - name: Subir a Drive
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          EXCEL_NAME: ${{ needs.scrape.outputs.excel_name }}
+        run: python3 scripts/upload_drive.py
+
   send_email:
-    name: "2 Enviar correo con Excel adjunto"
+    name: "3 Enviar correo con Excel adjunto"
     needs: scrape
     runs-on: ubuntu-latest
     if: ${{ always() && github.event.inputs.dry_run != 'true' && needs.scrape.result == 'success' }}
@@ -94,8 +120,8 @@ jobs:
         run: python3 scripts/send_email.py
 
   notify_failure:
-    name: "3 Notificar fallo"
-    needs: [scrape, send_email]
+    name: "4 Notificar fallo"
+    needs: [scrape, upload_drive, send_email]
     runs-on: ubuntu-latest
     if: ${{ failure() }}
     steps:
