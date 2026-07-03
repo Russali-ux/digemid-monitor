@@ -1,21 +1,28 @@
-import os, json, glob
+import os, glob
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 
-# FOLDER_ID actualizado: antes apuntaba a 1LOygkKnbednAw-eCPLM0-9TXLGj16hw4,
-# una carpeta distinta a la que realmente se está revisando
-# (https://drive.google.com/drive/u/0/folders/1tVXOQ0WgA3rzhPkNVtGhDoYlwopg44ko).
-# Por eso los archivos "se subían" (si el script llegaba a correr) pero nunca
-# aparecían donde se buscaban.
+# FOLDER_ID: carpeta real "Alertas" en Drive.
 FOLDER_ID  = "1tVXOQ0WgA3rzhPkNVtGhDoYlwopg44ko"
 FOLDER_URL = "https://drive.google.com/drive/folders/1tVXOQ0WgA3rzhPkNVtGhDoYlwopg44ko"
 
-creds_info = json.loads(os.environ['GOOGLE_SERVICE_ACCOUNT_JSON'])
-creds = service_account.Credentials.from_service_account_info(
-    creds_info,
-    scopes=['https://www.googleapis.com/auth/drive']
+# Antes usaba una cuenta de servicio (GOOGLE_SERVICE_ACCOUNT_JSON), pero las
+# cuentas de servicio no tienen cuota de almacenamiento propia y Google
+# rechaza la subida con "storageQuotaExceeded" al no ser una carpeta de
+# Shared Drive. En su lugar, se autentica como un usuario real
+# (conkosafe.ai@gmail.com) via OAuth con refresh token, que si tiene cuota.
+creds = Credentials(
+    token=None,
+    refresh_token=os.environ['GOOGLE_OAUTH_REFRESH_TOKEN'],
+    client_id=os.environ['GOOGLE_OAUTH_CLIENT_ID'],
+    client_secret=os.environ['GOOGLE_OAUTH_CLIENT_SECRET'],
+    token_uri='https://oauth2.googleapis.com/token',
+    scopes=['https://www.googleapis.com/auth/drive'],
 )
+creds.refresh(Request())  # canjea el refresh_token por un access_token nuevo
+
 service = build('drive', 'v3', credentials=creds)
 
 # Verificar acceso a la carpeta
@@ -29,7 +36,9 @@ try:
 except Exception as e:
     raise RuntimeError(
         f"Sin acceso a la carpeta Drive {FOLDER_ID}.\n"
-        f"Comparte la carpeta con: digemid-monitor@radiant-octane-424016-p0.iam.gserviceaccount.com como Editor.\n{e}"
+        f"Verifica que la cuenta autorizada (conkosafe.ai@gmail.com) tenga "
+        f"acceso de Editor a la carpeta, y que el refresh token no haya "
+        f"sido revocado.\n{e}"
     )
 
 # Buscar Excel
