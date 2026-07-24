@@ -64,7 +64,8 @@ Responde SOLO con JSON válido, sin texto adicional ni bloques markdown:
   "urgencia": "INMEDIATA | PREVENTIVA | INFORMATIVA",
   "dirigido_a": ["destinatario 1", "destinatario 2"],
   "acciones_detalladas": ["acción concreta 1", "acción 2"],
-  "resumen_accion": "1-2 oraciones resumiendo qué debe hacer el lector"
+  "resumen_accion": "1-2 oraciones resumiendo qué debe hacer el lector",
+  "titular_registro_sanitario": "razón social exacta de la(s) empresa(s) titular(es) del registro sanitario del/los producto(s) mencionado(s) en la alerta, ej: DROGUERÍA PERULAB S.A.C. Si hay varios productos/titulares en la misma alerta, sepáralos con ' | '. Deja vacío si el documento no lo menciona."
 }
 
 TEXTO:
@@ -141,9 +142,30 @@ def _analizar_heuristico(texto: str) -> dict:
     if not resumen and bullets:
         resumen = bullets[0][:220]
 
+    # Titular del registro sanitario: busca una razón social (sufijo legal
+    # S.A.C. / S.A. / S.R.L. / E.I.R.L.) cerca de la etiqueta "TITULAR DEL
+    # REGISTRO SANITARIO"; si no aparece la etiqueta, cae al último match de
+    # ese patrón antes de la sección de resultados analíticos. Es heurístico:
+    # el motor Claude API es más confiable para este campo porque el orden
+    # de lectura de tablas en PDF no siempre es lineal.
+    titular = ""
+    suf_pat = r"[A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9\.\,&\s]{2,80}?(?:S\.?A\.?C\.?|S\.?R\.?L\.?|E\.?I\.?R\.?L\.?|S\.?A\.?)\b"
+    m_label = re.search(r"TITULAR\s+DEL\s+REGISTRO\s+SANITARIO", up)
+    if m_label:
+        ventana = texto[m_label.end(): m_label.end() + 300]
+        m_emp = re.search(suf_pat, ventana)
+        if m_emp:
+            titular = m_emp.group(0).strip(" .,\n")
+    if not titular:
+        corte = up.find("RESULTADOS ANALÍTICOS")
+        bloque = texto[:corte] if corte != -1 else texto
+        candidatos = re.findall(suf_pat, bloque)
+        if candidatos:
+            titular = candidatos[-1].strip(" .,\n")
+
     return {"accion_principal": accion, "urgencia": urgencia,
             "dirigido_a": dirigido, "acciones_detalladas": bullets,
-            "resumen_accion": resumen}
+            "resumen_accion": resumen, "titular_registro_sanitario": titular}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -205,7 +227,8 @@ def _enriquecer(alerta: dict) -> dict:
     if not url:
         alerta.update({"pdf_url": None, "accion_principal": "Sin URL",
                        "urgencia": "INFORMATIVA", "resumen_accion": "Sin URL",
-                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—"})
+                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—",
+                       "titular_registro_sanitario": ""})
         return alerta
 
     pdf_url = _obtener_pdf_url(url)
@@ -214,21 +237,24 @@ def _enriquecer(alerta: dict) -> dict:
     if not pdf_url:
         alerta.update({"accion_principal": "Sin PDF", "urgencia": "INFORMATIVA",
                        "resumen_accion": "PDF no encontrado.",
-                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—"})
+                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—",
+                       "titular_registro_sanitario": ""})
         return alerta
 
     pdf_bytes = _descargar_pdf(pdf_url)
     if not pdf_bytes:
         alerta.update({"accion_principal": "Error descarga PDF", "urgencia": "INFORMATIVA",
                        "resumen_accion": "No se pudo descargar el PDF.",
-                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—"})
+                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—",
+                       "titular_registro_sanitario": ""})
         return alerta
 
     texto = _extraer_texto_pdf(pdf_bytes)
     if len(texto) < 50:
         alerta.update({"accion_principal": "PDF escaneado (sin texto)", "urgencia": "INFORMATIVA",
                        "resumen_accion": "El PDF parece ser imagen escaneada.",
-                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—"})
+                       "acciones_detalladas": "", "dirigido_a": "", "motor_analisis": "—",
+                       "titular_registro_sanitario": ""})
         return alerta
 
     resultado = _analizar_claude(texto) or _analizar_heuristico(texto)
@@ -240,6 +266,7 @@ def _enriquecer(alerta: dict) -> dict:
     alerta["acciones_detalladas"] = " | ".join(resultado.get("acciones_detalladas", []))
     alerta["dirigido_a"]          = " | ".join(resultado.get("dirigido_a", []))
     alerta["motor_analisis"]      = motor
+    alerta["titular_registro_sanitario"] = resultado.get("titular_registro_sanitario", "")
     return alerta
 
 
@@ -363,6 +390,7 @@ def exportar_excel(df: pd.DataFrame, ruta: str):
     COLS = [
         ("Título",               "titulo",               40),
         ("Producto",             "producto",             28),
+        ("Titular Registro Sanitario", "titular_registro_sanitario", 32),
         ("Tipo de Alerta",       "tipo_alerta",          20),
         ("Fecha Publicación",    "fecha_publicacion",    15),
         ("⚡ Acción Principal",  "accion_principal",     30),
@@ -432,7 +460,15 @@ def exportar_excel(df: pd.DataFrame, ruta: str):
     if "accion_principal" in df.columns:
         for i, (k, v) in enumerate(df["accion_principal"].value_counts().head(8).items(), 7):
             ws2[f"D{i}"] = k; ws2[f"E{i}"] = v
-    for col in ["A","B","D","E"]:
+    ws2["G6"] = "Titulares RS impactados:"; ws2["G6"].font = Font(bold=True, name="Arial")
+    if "titular_registro_sanitario" in df.columns:
+        conteo_tit = (
+            df[df["titular_registro_sanitario"].astype(str).str.strip() != ""]
+            ["titular_registro_sanitario"].value_counts()
+        )
+        for i, (k, v) in enumerate(conteo_tit.head(10).items(), 7):
+            ws2[f"G{i}"] = k; ws2[f"H{i}"] = v
+    for col in ["A","B","D","E","G","H"]:
         ws2.column_dimensions[col].width = 40
 
     wb.save(ruta)

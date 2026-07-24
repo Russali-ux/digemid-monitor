@@ -42,6 +42,51 @@ else:
 
 motor_txt = "Claude API" if motor == "Claude API" else "Motor Heuristico"
 
+# Buscar Excel generado — el scraper de alertas nombra el archivo
+# alertas_digemid_YYYYMMDD_HHMM.xlsx; si el patrón cambia, cae a cualquier .xlsx en /tmp
+archivos = glob.glob('/tmp/alertas_digemid_*.xlsx') or glob.glob('/tmp/*.xlsx')
+if not archivos:
+    raise FileNotFoundError("No se encontro ningun Excel de alertas en /tmp/")
+ruta_excel = sorted(archivos)[-1]
+
+# Titulares de Registro Sanitario impactados (se lee del propio Excel generado
+# por el scraper, columna "Titular Registro Sanitario")
+titulares_html = ""
+try:
+    import pandas as pd
+    df_rep = pd.read_excel(ruta_excel)
+    col_tit = next((c for c in df_rep.columns if "titular" in c.lower()), None)
+    col_urg = next((c for c in df_rep.columns if "urgencia" in c.lower()), None)
+    if col_tit:
+        df_rep[col_tit] = df_rep[col_tit].astype(str).str.strip()
+        con_titular = df_rep[~df_rep[col_tit].str.upper().isin(["", "NAN", "NONE"])]
+        if not con_titular.empty:
+            filas = []
+            for titular, grupo in con_titular.groupby(col_tit):
+                n_alertas = len(grupo)
+                es_inmediata = bool(
+                    col_urg and (grupo[col_urg].astype(str).str.upper() == "INMEDIATA").any()
+                )
+                color = "#C00000" if es_inmediata else "#1F4E79"
+                filas.append(
+                    f'<li style="margin:4px 0;">'
+                    f'<span style="color:{color};font-weight:bold;">{titular}</span>'
+                    f' &mdash; {n_alertas} alerta(s)'
+                    f'{" 🔴" if es_inmediata else ""}</li>'
+                )
+            titulares_html = (
+                '<tr><td style="padding:0 32px 22px;">'
+                '<div style="background:#F7F3FB;border-left:4px solid #6B3FA0;padding:14px 18px;'
+                'border-radius:0 8px 8px 0;">'
+                '<p style="margin:0 0 8px;font-size:13px;color:#4B2E7A;font-weight:bold;">'
+                '&#127970; Titulares de Registro Sanitario impactados</p>'
+                f'<ul style="margin:0;padding-left:18px;font-size:13px;color:#333;">'
+                f'{"".join(filas)}</ul>'
+                '</div></td></tr>'
+            )
+except Exception as e:
+    print(f"[Aviso] No se pudo extraer titulares de registro sanitario del Excel: {e}")
+
 html = (
     '<!DOCTYPE html><html lang="es"><head>'
     '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -104,6 +149,7 @@ html = (
     '<li>Comunicar a Almac&eacute;n / Compras / Direcci&oacute;n T&eacute;cnica seg&uacute;n corresponda</li>'
     '<li>Registrar la alerta y la acci&oacute;n tomada en el registro interno de farmacovigilancia/calidad</li>'
     '</ol></div></td></tr>'
+    f'{titulares_html}'
     '<tr><td style="padding:0 32px 22px;">'
     '<div style="background:#FFFBF0;border-left:4px solid #ED7D31;padding:12px 18px;'
     'border-radius:0 8px 8px 0;">'
@@ -125,21 +171,9 @@ html = (
     '</body></html>'
 )
 
-# Asunto
+# Asunto — formato fijo: "CONKOMERCO Alertas (fecha del reporte)"
 fecha_corta = fecha[:10] if fecha else ""
-if n_inm > 0:
-    asunto = f"[DIGEMID ALERTA {fecha_corta}] {n_inm} alerta(s) INMEDIATA(S) — Accion requerida"
-elif n_pre > 0:
-    asunto = f"[DIGEMID ALERTA {fecha_corta}] {n_pre} alerta(s) PREVENTIVA(S)"
-else:
-    asunto = f"[DIGEMID ALERTA {fecha_corta}] {n_tot} alerta(s) sanitaria(s) — Sin urgencias"
-
-# Buscar Excel generado — el scraper de alertas nombra el archivo
-# alertas_digemid_YYYYMMDD_HHMM.xlsx; si el patrón cambia, cae a cualquier .xlsx en /tmp
-archivos = glob.glob('/tmp/alertas_digemid_*.xlsx') or glob.glob('/tmp/*.xlsx')
-if not archivos:
-    raise FileNotFoundError("No se encontro ningun Excel de alertas en /tmp/")
-ruta_excel = sorted(archivos)[-1]
+asunto = f"CONKOMERCO Alertas ({fecha_corta})" if fecha_corta else "CONKOMERCO Alertas"
 
 # Construir mensaje
 # ✅ Solo EMAIL_FROM en el header "To" — ningún destinatario es visible
