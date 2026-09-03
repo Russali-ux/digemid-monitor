@@ -18,7 +18,7 @@ env:
   PYTHON_VERSION: "3.11"
   TZ: "America/Lima"
   EMAIL_FROM: "conkosafe.ai@gmail.com"
-  EMAIL_TO: "finanzas@conkomerco.com,conkosafe.ai@gmail.com,july.maita@conkomerco.com,alex.rodriguez@conkomerco.com,angelica.aguero@conkomerco.com,aron.cortez@conkomerco.com,giancarlos.chafloque@conkomerco.com,vigilanciasanitaria@soltonpharma.com,farmacovigilancia@corval.com.pe,azegarra@soltonpharma.com,fv@corporacioncobefar.com.pe,farmacovigilancia@greyinversiones.com,regulatorios@greyinversiones.com,dtecnica@corporacioncobefar.com.pe,fv.peru@sevenpharma.net,fv1.peru@sevenpharma.net,Regulatory.Peru@sevenpharma.net,farmacovigilancia@qmpharma.com,farmacovigilancia@perulab.com.pe,farmacovigilancia@bago.com.pe,srosas@ferrer.com,nperez@munizlaw.com,jugas@munizlaw.com,mespinozaf@munizlaw.com,bmerchor@munizlaw.com,pefarmacovigilancia@ferrer.com"
+  EMAIL_TO: "finanzas@conkomerco.com,conkosafe.ai@gmail.com,july.maita@conkomerco.com,alex.rodriguez@conkomerco.com,angelica.aguero@conkomerco.com,aron.cortez@conkomerco.com,giancarlos.chafloque@conkomerco.com,vigilanciasanitaria@soltonpharma.com,farmacovigilancia@corval.com.pe,azegarra@soltonpharma.com,fv@corporacioncobefar.com.pe,farmacovigilancia@greyinversiones.com,regulatorios@greyinversiones.com,dtecnica@corporacioncobefar.com.pe,fv.peru@sevenpharma.net,fv1.peru@sevenpharma.net,Regulatory.Peru@sevenpharma.net,farmacovigilancia@qmpharma.com,farmacovigilancia@perulab.com.pe,farmacovigilancia@bago.com.pe,srosas@ferrer.com,nperez@munizlaw.com,jugas@munizlaw.com,mespinozaf@munizlaw.com,bmerchor@munizlaw.com,pefarmacovigilancia@ferrer.com,anazegarraf3@gmail.com,fmsconsulting25@gmail.com"
 
 jobs:
 
