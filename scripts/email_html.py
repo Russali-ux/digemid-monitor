@@ -151,7 +151,8 @@ def kpi(valor, etiqueta, color, bg):
             f'<div style="font-size:11px;color:#475467;margin-top:5px;line-height:1.3;">{etiqueta}</div></div></td>')
 
 
-def construir_html(alertas, modificatorias, fecha_txt, adjunto_nombre, estado_scraper=None):
+def construir_html(alertas, modificatorias, fecha_txt, adjunto_nombre, estado_scraper=None,
+                   logo_src="cid:logo_conkosafe"):
     n_a, n_m = len(alertas), len(modificatorias)
     n_inm = sum(1 for a in alertas if (a.get("urgencia") or "").upper() == "INMEDIATA")
     n_pre = sum(1 for a in alertas if (a.get("urgencia") or "").upper() == "PREVENTIVA")
@@ -172,13 +173,20 @@ def construir_html(alertas, modificatorias, fecha_txt, adjunto_nombre, estado_sc
         '<tr><td align="center">'
         '<table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#fff;'
         'border-radius:12px;overflow:hidden;border:1px solid #EAECF0;">',
-        # Encabezado
-        f'<tr><td bgcolor="{AZUL}" style="background:{AZUL};padding:24px 28px;">'
+        # Encabezado con logo (src = cid:logo_conkosafe en el correo; ruta local en la vista previa)
+        f'<tr><td bgcolor="{AZUL}" style="background:{AZUL};padding:20px 28px;">'
+        '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+        '<td width="84" valign="middle" style="padding-right:16px;">'
+        '<div style="background:#fff;border-radius:10px;padding:4px;width:72px;height:72px;">'
+        f'<img src="{logo_src}" width="72" height="72" alt="ConkoSafe IA" '
+        'style="display:block;width:72px;height:72px;border:0;"></div></td>'
+        '<td valign="middle">'
         '<p style="margin:0;color:#C7CEF5;font-size:11px;text-transform:uppercase;letter-spacing:1.4px;">'
         'ConkoSafe IA &mdash; PV Intelligence</p>'
         '<h1 style="margin:6px 0 0;color:#fff;font-size:22px;line-height:1.3;">Alertas y Modificatorias DIGEMID</h1>'
         f'<p style="margin:4px 0 0;color:#C7CEF5;font-size:12px;">Reporte del {escape(fecha_txt)} (hora Lima)'
-        f' &middot; &uacute;ltima alerta publicada: {ultima}</p></td></tr>',
+        f' &middot; &uacute;ltima alerta publicada: {ultima}</p></td>'
+        '</tr></table></td></tr>',
         # KPIs
         '<tr><td style="padding:18px 24px 6px;"><table width="100%" cellpadding="0" cellspacing="0"><tr>'
         + kpi(n_a, "&Uacute;ltimas<br>alertas", AZUL, AZUL_CLARO)
