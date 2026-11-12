@@ -51,7 +51,7 @@ jobs:
           SMTP_USER:         ${{ secrets.SMTP_USER }}
           SMTP_PASS:         ${{ secrets.SMTP_PASS }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          # Solo para dry run (borrador en Gmail). Si no existen, se usan SMTP_USER/SMTP_PASS.
+          # Solo para dry run (borrador en Gmail). Si no existen, no se crea borrador.
           IMAP_USER:         ${{ secrets.IMAP_USER }}
           IMAP_PASS:         ${{ secrets.IMAP_PASS }}
           N_ALERTAS:         ${{ github.event.inputs.n_alertas || '10' }}
