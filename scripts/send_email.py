@@ -101,10 +101,12 @@ if DRY_RUN:
     print(f"[DRY RUN] Vista previa: /tmp/preview_email.html | Excel: {ruta_excel}")
 
     msg.replace_header("Subject", f"[PRUEBA] {asunto}")
-    imap_user = os.environ.get("IMAP_USER") or os.environ.get("SMTP_USER", "")
-    imap_pass = os.environ.get("IMAP_PASS") or os.environ.get("SMTP_PASS", "")
+    # Solo con secrets IMAP propios: no se reutiliza SMTP_* para no acumular logins fallidos
+    imap_user = os.environ.get("IMAP_USER", "")
+    imap_pass = os.environ.get("IMAP_PASS", "")
     if not (imap_user and imap_pass):
-        print("[DRY RUN] Sin credenciales: no se creó borrador en Gmail (solo artifact).")
+        print("[DRY RUN] Sin secrets IMAP_USER/IMAP_PASS: no se creó borrador en Gmail "
+              "(la vista previa está en el artifact preview-correo).")
         sys.exit(0)
     imap_host = os.environ.get("IMAP_HOST") or "imap.gmail.com"
     try:
@@ -130,11 +132,38 @@ smtp_user = os.environ["SMTP_USER"]
 smtp_pass = os.environ["SMTP_PASS"]
 destinatarios = [x.strip() for x in os.environ["EMAIL_TO"].split(",") if x.strip()]
 
-with smtplib.SMTP(smtp_host, smtp_port) as server:
-    server.ehlo()
-    server.starttls()
-    server.login(smtp_user, smtp_pass)
-    server.sendmail(EMAIL_FROM, destinatarios, msg.as_string())
+
+
+def enviar_una_vez():
+    if smtp_port == 465:
+        server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=60)
+    else:
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=60)
+    with server:
+        code, resp = server.ehlo()
+        print(f"Servidor SMTP: {code} {resp.decode(errors='ignore').splitlines()[0]}")
+        if smtp_port != 465:
+            server.starttls()
+            server.ehlo()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(EMAIL_FROM, destinatarios, msg.as_string())
+
+
+ESPERAS = [30, 90, 180]   # segundos entre reintentos
+for intento in range(1, len(ESPERAS) + 2):
+    try:
+        enviar_una_vez()
+        break
+    except smtplib.SMTPAuthenticationError as exc:
+        # Usuario/contraseña rechazados: reintentar no sirve y agrava bloqueos
+        raise RuntimeError(f"SMTP rechazó las credenciales ({exc.smtp_code}): revise SMTP_USER / SMTP_PASS") from exc
+    except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, TimeoutError, OSError) as exc:
+        if intento > len(ESPERAS):
+            raise RuntimeError(
+                f"El servidor SMTP cortó la conexión en {intento} intentos ({exc}). Suele indicar un bloqueo "
+                "temporal de la cuenta por intentos fallidos o una contraseña de aplicación revocada.") from exc
+        print(f"::warning::Intento {intento} falló ({type(exc).__name__}: {exc}); reintento en {ESPERAS[intento-1]} s")
+        time.sleep(ESPERAS[intento - 1])
 
 print(f"Correo enviado: {EMAIL_FROM} -> {len(destinatarios)} destinatarios (ocultos)")
 print(f"Asunto: {asunto}")
