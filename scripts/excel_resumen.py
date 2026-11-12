@@ -34,7 +34,7 @@ def _hoja(ws, titulo, fecha_txt, filas, cols):
     ws.cell(1, 1, f"ConkoSafe IA — {titulo}").font = Font(bold=True, size=14, color="FFFFFF")
     ws.cell(1, 1).fill = PatternFill("solid", fgColor=AZUL)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n)
-    ws.cell(2, 1, f"Generado: {fecha_txt} (hora Lima) | N° de registros: {len(filas)} | Fuente: DIGEMID / Alertas-analyzer")
+    ws.cell(2, 1, f"Generado: {fecha_txt} (hora Lima) | N° de registros: {len(filas)} | Fuente: DIGEMID / ConkoSafe IA")
     ws.cell(2, 1).font = Font(italic=True, size=9, color="475467")
     for j, (_, cab, ancho) in enumerate(cols, 1):
         c = ws.cell(4, j, cab)

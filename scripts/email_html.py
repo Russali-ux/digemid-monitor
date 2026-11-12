@@ -13,8 +13,8 @@ NARANJA, NARANJA_BG = "#B54708", "#FFFAEB"
 VERDE, VERDE_BG = "#067647", "#ECFDF3"
 GRIS, GRIS_BG, BORDE = "#475467", "#F9FAFB", "#EAECF0"
 
-URL_ALERTAS = "https://russali-ux.github.io/Alertas-analyzer/"
-URL_MODIF = "https://russali-ux.github.io/Alertas-analyzer/modificatorias/"
+URL_CONKOSAFE = "https://conkosafeia.conkomercoplataforma.com/"
+URL_ALERTAS = URL_MODIF = URL_CONKOSAFE   # "Ver todo" lleva a ConkoSafe IA
 URL_DIGEMID = "https://www.digemid.minsa.gob.pe/webDigemid/publicaciones/alertas-modificaciones/alertas/"
 
 
@@ -226,7 +226,7 @@ def construir_html(alertas, modificatorias, fecha_txt, adjunto_nombre, estado_sc
         'Monitoreo desarrollado para Conkomerco y enviado autom&aacute;ticamente por ConkoSafe IA. '
         'La IA puede cometer errores: confirme siempre en la fuente oficial. '
         f'<a href="{URL_DIGEMID}" style="color:{AZUL};">digemid.minsa.gob.pe</a> &middot; '
-        f'<a href="{URL_ALERTAS}" style="color:{AZUL};">Alertas-analyzer</a></p></td></tr>',
+        f'<a href="{URL_CONKOSAFE}" style="color:{AZUL};">ConkoSafe IA</a></p></td></tr>',
         '</table></td></tr></table></body></html>',
     ]
     return "".join(partes)
