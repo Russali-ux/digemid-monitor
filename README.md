@@ -5,22 +5,25 @@ sube el Excel a Google Drive y envia un correo HTML de confirmacion.
 
 ## Flujo
 
+Dos workflows independientes:
+
 ```
-Cada 3 dias - 8:00 AM Lima
-        |
-        v
-[1] Scraping DIGEMID  -->  alertas_digemid_YYYYMMDD_HHMM.xlsx  --> [2] Google Drive
-        |
-        v   (corre aunque el scraping falle)
-[3] Correo HTML  <-- Supabase (base de Alertas-analyzer)
-      - ultimas 10 alertas      (tabla alertas_digemid)
-      - ultimas 4 modificatorias (tabla modificatorias_digemid)
-      - Excel adjunto conkosafe_alertas_modificatorias_YYYYMMDD.xlsx
-        (hojas "Alertas" y "Modificatorias", mismos campos que la web)
-        |
-        v
-[4] Si algo falla -> correo de error automatico
+monitor_digemid.yml  "Monitor DIGEMID - Scraping y Drive"   (cada 3 dias, 8:00 AM Lima)
+  [1] Scraping DIGEMID -> alertas_digemid_YYYYMMDD_HHMM.xlsx
+  [2] Sube el Excel a Google Drive
+  [3] Si falla -> correo de error interno
+  (NO envia correo a la lista)
+
+correo_alertas.yml   "Correo DIGEMID - Alertas y Modificatorias"  (cada 3 dias, 8:30 AM Lima)
+  [1] Lee de Supabase (base de Alertas-analyzer):
+        - ultimas 10 alertas       (tabla alertas_digemid)
+        - ultimas 4 modificatorias (tabla modificatorias_digemid)
+  [2] Envia el correo HTML a la lista (BCC) con el Excel
+      conkosafe_alertas_modificatorias_YYYYMMDD.xlsx
+  [3] Si falla -> correo de error interno
 ```
+
+La lista de destinatarios (`EMAIL_TO`) vive ahora en `correo_alertas.yml`.
 
 Campos del correo (iguales a las vistas de Alertas-analyzer):
 
@@ -32,7 +35,8 @@ Campos del correo (iguales a las vistas de Alertas-analyzer):
 
 ```
 digemid-monitor/
- .github/workflows/monitor_digemid.yml  <- workflow principal
+ .github/workflows/monitor_digemid.yml  <- scraping + Drive (sin correo)
+ .github/workflows/correo_alertas.yml   <- correo desde Alertas-analyzer
  scripts/
    scraper.py / run_scraper.py          <- scraper DIGEMID (Excel -> Drive)
    upload_drive.py                      <- subida a Google Drive
@@ -114,8 +118,8 @@ Actions -> Monitor DIGEMID - Alertas Diarias -> Run workflow
 
 Parametros opcionales:
 - `max_paginas`: 1 (default) = ultimas 10 alertas
-- `dry_run`: true = no envia el correo; deja `preview-correo` (HTML + Excel) como artifact
-- `n_alertas` / `n_modificatorias`: cantidad en el correo (default 10 / 4)
+- Workflow de correo: `dry_run` = true no envia; deja `preview-correo` (HTML + Excel) como artifact
+- Workflow de correo: `n_alertas` / `n_modificatorias` = cantidad en el correo (default 10 / 4)
 
 ## Que cambia con ANTHROPIC_API_KEY
 
