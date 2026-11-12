@@ -5,12 +5,13 @@ from email.mime.text import MIMEText
 EMAIL_FROM = "conkosafe.ai@gmail.com"
 EMAIL_TO   = "finanzas@conkomerco.com,conkosafe.ai@gmail.com"
 run_url    = os.environ.get('RUN_URL', '#')
+nombre     = os.environ.get('WORKFLOW_NOMBRE', 'Monitor DIGEMID')
 
 html = (
     '<div style="font-family:Arial;padding:24px;background:#FFF5F5;'
     'border-left:5px solid #C00000;border-radius:4px;">'
     '<h2 style="color:#C00000;margin-top:0;">Monitor DIGEMID - Error en ejecucion</h2>'
-    '<p>El workflow automatico de alertas DIGEMID fallo.</p>'
+    f'<p>El workflow automatico <strong>{nombre}</strong> fallo.</p>'
     f'<p><a href="{run_url}" style="background:#C00000;color:#fff;padding:10px 20px;'
     'border-radius:6px;text-decoration:none;font-weight:bold;">Ver log en GitHub Actions</a></p>'
     '<hr style="border:none;border-top:1px solid #FCCBCB;margin:16px 0;">'
@@ -19,7 +20,7 @@ html = (
 )
 
 msg = MIMEMultipart('alternative')
-msg['Subject'] = "[ERROR] Monitor DIGEMID - Fallo en ejecucion automatica"
+msg['Subject'] = f"[ERROR] {nombre} - Fallo en ejecucion automatica"
 msg['From']    = f"Monitor DIGEMID CONKOMERCO <{EMAIL_FROM}>"
 msg['To']      = EMAIL_TO
 msg.attach(MIMEText(html, 'html'))

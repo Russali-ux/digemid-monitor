@@ -1,0 +1,88 @@
+name: "Correo DIGEMID - Alertas y Modificatorias (Alertas-analyzer)"
+
+# Envia el correo con las ultimas alertas y modificatorias de la base de
+# Alertas-analyzer (Supabase). No scrapea: el scraping vive en monitor_digemid.yml.
+
+on:
+  schedule:
+    - cron: "30 13 */3 * *"   # cada 3 dias, 8:30 AM Lima
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no envia mail; deja vista previa HTML + Excel como artifact)"
+        type: boolean
+        default: false
+      n_alertas:
+        description: "Alertas en el correo (ultimas de Alertas-analyzer)"
+        required: false
+        default: "10"
+      n_modificatorias:
+        description: "Modificatorias en el correo (ultimas de Alertas-analyzer)"
+        required: false
+        default: "4"
+
+env:
+  PYTHON_VERSION: "3.11"
+  TZ: "America/Lima"
+  SUPABASE_URL: "https://ggbnfdaxtsngsjssrwrl.supabase.co"
+  EMAIL_FROM: "conkosafe.ai@gmail.com"
+  EMAIL_TO: "finanzas@conkomerco.com,conkosafe.ai@gmail.com,july.maita@conkomerco.com,alex.rodriguez@conkomerco.com,angelica.aguero@conkomerco.com,aron.cortez@conkomerco.com,giancarlos.chafloque@conkomerco.com,vigilanciasanitaria@soltonpharma.com,farmacovigilancia@corval.com.pe,azegarra@soltonpharma.com,fv@corporacioncobefar.com.pe,farmacovigilancia@greyinversiones.com,regulatorios@greyinversiones.com,dtecnica@corporacioncobefar.com.pe,fv.peru@sevenpharma.net,fv1.peru@sevenpharma.net,Regulatory.Peru@sevenpharma.net,farmacovigilancia@qmpharma.com,farmacovigilancia@perulab.com.pe,farmacovigilancia@bago.com.pe,srosas@ferrer.com,nperez@munizlaw.com,jugas@munizlaw.com,mespinozaf@munizlaw.com,bmerchor@munizlaw.com,pefarmacovigilancia@ferrer.com,anazegarraf3@gmail.com,leman@gedeonrichter.com,farmacovigilancia@drvdistribuciones.com,director.tecnico@drvdistribuciones.com"
+
+jobs:
+
+  send_email:
+    name: "Enviar correo (Alertas-analyzer)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Instalar dependencias
+        run: |
+          pip install --upgrade pip
+          pip install requests openpyxl
+      - name: Construir y enviar correo
+        env:
+          SMTP_HOST:         ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:         ${{ secrets.SMTP_PORT }}
+          SMTP_USER:         ${{ secrets.SMTP_USER }}
+          SMTP_PASS:         ${{ secrets.SMTP_PASS }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          N_ALERTAS:         ${{ github.event.inputs.n_alertas || '10' }}
+          N_MODIFICATORIAS:  ${{ github.event.inputs.n_modificatorias || '4' }}
+          DRY_RUN:           ${{ github.event.inputs.dry_run || 'false' }}
+        run: python3 scripts/send_email.py
+      - name: Guardar vista previa (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-correo
+          path: |
+            /tmp/preview_email.html
+            /tmp/conkosafe_alertas_modificatorias_*.xlsx
+          retention-days: 7
+
+  notify_failure:
+    name: "Notificar fallo"
+    needs: send_email
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Enviar alerta de fallo
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          RUN_URL:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_NOMBRE: "Correo DIGEMID (Alertas-analyzer)"
+        run: python3 scripts/notify_failure.py
