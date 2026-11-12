@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Dry run (no envia mail; deja vista previa HTML + Excel como artifact)"
+        description: "Dry run (no envia a la lista; deja el correo en Borradores de Gmail + artifact)"
         type: boolean
         default: false
       n_alertas:
