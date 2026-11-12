@@ -52,7 +52,7 @@ excel_name = f"conkosafe_alertas_modificatorias_{ahora.strftime('%Y%m%d')}.xlsx"
 ruta_excel = construir_excel(alertas, modificatorias, f"/tmp/{excel_name}", fecha_txt)
 html = construir_html(alertas, modificatorias, fecha_txt, excel_name, ESTADO_SCRAPER)
 
-asunto = f"CONKOMERCO Alertas ({ahora.strftime('%d/%m/%Y')})"
+asunto = f"CONKOMERCO Alertas y Modificatorias ({ahora.strftime('%d/%m/%Y')})"
 
 # 3. Mensaje (idéntico para envío real y para borrador)
 msg = MIMEMultipart("mixed")
