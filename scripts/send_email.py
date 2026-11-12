@@ -106,13 +106,20 @@ if DRY_RUN:
     if not (imap_user and imap_pass):
         print("[DRY RUN] Sin credenciales: no se creó borrador en Gmail (solo artifact).")
         sys.exit(0)
-    with imaplib.IMAP4_SSL(os.environ.get("IMAP_HOST", "imap.gmail.com"), 993) as imap:
-        imap.login(imap_user, imap_pass)
-        carpeta = carpeta_borradores(imap)
-        typ, _ = imap.append(carpeta, "\\Draft", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
-    if typ != "OK":
-        raise RuntimeError(f"No se pudo guardar el borrador en {carpeta} (IMAP: {typ})")
-    print(f"[DRY RUN] No se envió a la lista. Borrador guardado en {carpeta} de {imap_user}")
+    imap_host = os.environ.get("IMAP_HOST") or "imap.gmail.com"
+    try:
+        with imaplib.IMAP4_SSL(imap_host, 993) as imap:
+            imap.login(imap_user, imap_pass)
+            carpeta = carpeta_borradores(imap)
+            typ, _ = imap.append(carpeta, "\\Draft", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+        if typ != "OK":
+            raise RuntimeError(f"respuesta IMAP {typ}")
+        print(f"[DRY RUN] No se envió a la lista. Borrador guardado en {carpeta} de {imap_user}")
+    except Exception as exc:
+        # El dry run no falla por esto: la vista previa queda igual en el artifact preview-correo
+        print(f"::warning::No se pudo crear el borrador en Gmail ({imap_user} @ {imap_host}): {exc}. "
+              "Configure los secrets IMAP_USER (cuenta Gmail) e IMAP_PASS (contraseña de aplicación) "
+              "y verifique que IMAP esté habilitado en Gmail. La vista previa está en el artifact preview-correo.")
     print(f"Asunto: [PRUEBA] {asunto}")
     sys.exit(0)
 
