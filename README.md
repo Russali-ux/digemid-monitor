@@ -9,34 +9,44 @@ sube el Excel a Google Drive y envia un correo HTML de confirmacion.
 Cada 3 dias - 8:00 AM Lima
         |
         v
-[1] Scraping DIGEMID  -->  alertas_digemid_YYYYMMDD_HHMM.xlsx
+[1] Scraping DIGEMID  -->  alertas_digemid_YYYYMMDD_HHMM.xlsx  --> [2] Google Drive
         |
-   _____|_____
-  |           |
-  v           v
-[2] Drive   [3] Correo HTML
-  Carpeta     De:   russbelt.aliaga@conkomerco.com
-  Monitoreo   Para: july.maita@conkomerco.com
-  de alertas        finanzas@conkomerco.com
+        v   (corre aunque el scraping falle)
+[3] Correo HTML  <-- Supabase (base de Alertas-analyzer)
+      - ultimas 10 alertas      (tabla alertas_digemid)
+      - ultimas 4 modificatorias (tabla modificatorias_digemid)
+      - Excel adjunto conkosafe_alertas_modificatorias_YYYYMMDD.xlsx
+        (hojas "Alertas" y "Modificatorias", mismos campos que la web)
         |
         v
-[4] Si falla -> correo de error automatico
+[4] Si algo falla -> correo de error automatico
 ```
+
+Campos del correo (iguales a las vistas de Alertas-analyzer):
+
+| Alertas | Modificatorias |
+|---------|----------------|
+| N° alerta, fecha, producto, titular impactado, N° lote, tipo, urgencia, accion principal, resumen IA, link DIGEMID, PDF | N° modificacion, fecha, producto, principio activo, titular RS, tipo, urgencia, accion requerida, fecha limite 15 d.h. (sin feriados Peru), indicador de tiempos, base legal, resumen, link publicacion, PDF |
 
 ## Estructura
 
 ```
 digemid-monitor/
- .gitattributes                          <- evita warning CRLF en Windows
- .github/
-   workflows/
-     monitor_digemid.yml                <- workflow principal
+ .github/workflows/monitor_digemid.yml  <- workflow principal
  scripts/
-   scraper.py                           <- scraper DIGEMID
- utils/
-   setup_drive.py                       <- verificar acceso Drive
-   test_smtp.py                         <- verificar SMTP
- README.md
+   scraper.py / run_scraper.py          <- scraper DIGEMID (Excel -> Drive)
+   upload_drive.py                      <- subida a Google Drive
+   supabase_data.py                     <- lee ultimas alertas/modificatorias de Supabase
+   email_html.py                        <- plantilla HTML del correo
+   excel_resumen.py                     <- Excel adjunto (2 hojas)
+   send_email.py                        <- arma y envia el correo (o vista previa en dry run)
+   notify_failure.py                    <- correo de error
+ utils/                                 <- pruebas de Drive y SMTP
+```
+
+Probar el correo localmente sin enviar:
+```
+DRY_RUN=true python3 scripts/send_email.py   # genera /tmp/preview_email.html
 ```
 
 ## Valores hardcodeados (no necesitan secret)
@@ -60,6 +70,7 @@ Ir a: **Settings -> Secrets and variables -> Actions -> New repository secret**
 | `SMTP_USER` | Cuenta de correo que envia (Gmail o Outlook) |
 | `SMTP_PASS` | App Password de Gmail (16 caracteres) |
 | `ANTHROPIC_API_KEY` | (Recomendado) Activa analisis con Claude IA |
+| `SUPABASE_ANON_KEY` | (Opcional) anon key de Alertas-analyzer; si no existe se usa la publica de la web |
 
 ## Configuracion paso a paso
 
@@ -103,7 +114,8 @@ Actions -> Monitor DIGEMID - Alertas Diarias -> Run workflow
 
 Parametros opcionales:
 - `max_paginas`: 1 (default) = ultimas 10 alertas
-- `dry_run`: true = solo scrapea, no envia mail ni sube a Drive
+- `dry_run`: true = no envia el correo; deja `preview-correo` (HTML + Excel) como artifact
+- `n_alertas` / `n_modificatorias`: cantidad en el correo (default 10 / 4)
 
 ## Que cambia con ANTHROPIC_API_KEY
 
