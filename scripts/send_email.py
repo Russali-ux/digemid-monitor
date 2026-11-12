@@ -17,6 +17,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from email import encoders
 from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -29,6 +30,7 @@ DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 N_ALERTAS = int(os.environ.get("N_ALERTAS", "10"))
 N_MODIF = int(os.environ.get("N_MODIFICATORIAS", "4"))
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "conkosafe.ai@gmail.com")
+LOGO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "logo_conkosafe.png")
 ESTADO_SCRAPER = os.environ.get("ESTADO_SCRAPER", "")
 
 ahora = datetime.now(timezone(timedelta(hours=-5)))   # hora Lima
@@ -49,8 +51,11 @@ html = construir_html(alertas, modificatorias, fecha_txt, excel_name, ESTADO_SCR
 asunto = f"CONKOMERCO Alertas ({ahora.strftime('%d/%m/%Y')})"
 
 if DRY_RUN:
+    import base64
+    with open(LOGO, "rb") as fh:
+        logo_b64 = "data:image/png;base64," + base64.b64encode(fh.read()).decode()
     with open("/tmp/preview_email.html", "w", encoding="utf-8") as fh:
-        fh.write(html)
+        fh.write(construir_html(alertas, modificatorias, fecha_txt, excel_name, ESTADO_SCRAPER, logo_src=logo_b64))
     print(f"[DRY RUN] No se envió. Vista previa: /tmp/preview_email.html | Excel: {ruta_excel}")
     print(f"Asunto: {asunto}")
     sys.exit(0)
@@ -67,7 +72,15 @@ msg["Subject"] = asunto
 msg["From"] = f"Monitor DIGEMID CONKOMERCO <{EMAIL_FROM}>"
 msg["To"] = EMAIL_FROM          # solo el remitente visible en "Para"
 msg["Reply-To"] = EMAIL_FROM
-msg.attach(MIMEText(html, "html", "utf-8"))
+# Cuerpo HTML + logo incrustado (CID): se ve aunque el cliente bloquee imágenes externas
+cuerpo = MIMEMultipart("related")
+cuerpo.attach(MIMEText(html, "html", "utf-8"))
+with open(LOGO, "rb") as fh:
+    logo = MIMEImage(fh.read(), _subtype="png")
+logo.add_header("Content-ID", "<logo_conkosafe>")
+logo.add_header("Content-Disposition", "inline", filename="logo_conkosafe.png")
+cuerpo.attach(logo)
+msg.attach(cuerpo)
 
 with open(ruta_excel, "rb") as f:
     adj = MIMEBase("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
